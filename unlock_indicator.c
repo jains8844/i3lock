@@ -23,7 +23,7 @@
 #include "randr.h"
 #include "dpi.h"
 
-#define BUTTON_RADIUS 90
+#define BUTTON_RADIUS 30
 #define BUTTON_SPACE (BUTTON_RADIUS + 5)
 #define BUTTON_CENTER (BUTTON_RADIUS + 5)
 #define BUTTON_DIAMETER (2 * BUTTON_SPACE)
@@ -107,7 +107,7 @@ static void display_button_text(
     double x, y;
 
     cairo_text_extents(ctx, text, &extents);
-    x = BUTTON_CENTER - ((extents.width / 2) + extents.x_bearing);
+    x = BUTTON_CENTER + BUTTON_RADIUS * 1.25;
     y = BUTTON_CENTER - ((extents.height / 2) + extents.y_bearing) + y_offset;
 
     cairo_move_to(ctx, x, y);
@@ -183,7 +183,7 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
     /* Initialize cairo: Create one in-memory surface to render the unlock
      * indicator on, create one XCB surface to actually draw (one or more,
      * depending on the amount of screens) unlock indicators on. */
-    cairo_surface_t *output = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, button_diameter_physical, button_diameter_physical);
+    cairo_surface_t *output = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, button_diameter_physical * 3, button_diameter_physical);
     cairo_t *ctx = cairo_create(output);
 
     cairo_surface_t *xcb_output = cairo_xcb_surface_create(conn, bg_pixmap, vistype, resolution[0], resolution[1]);
@@ -222,7 +222,7 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
         (unlock_state >= STATE_KEY_PRESSED || auth_state > STATE_AUTH_IDLE)) {
         cairo_scale(ctx, scaling_factor, scaling_factor);
         /* Draw a (centered) circle with transparent background. */
-        cairo_set_line_width(ctx, 10.0);
+        cairo_set_line_width(ctx, 4.0);
         cairo_arc(ctx,
                   BUTTON_CENTER /* x */,
                   BUTTON_CENTER /* y */,
@@ -285,16 +285,16 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
                   2 * M_PI);
         cairo_stroke(ctx);
 
-        cairo_set_line_width(ctx, 10.0);
+        cairo_set_line_width(ctx, 4.0);
 
         /* Display a (centered) text of the current PAM state. */
         char *text = NULL;
         /* We don't want to show more than a 3-digit number. */
-        char buf[4];
+        char buf[20];
 
         cairo_set_source_rgb(ctx, 0, 0, 0);
         cairo_select_font_face(ctx, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        cairo_set_font_size(ctx, 28.0);
+        cairo_set_font_size(ctx, 20.0);
         switch (auth_state) {
             case STATE_AUTH_VERIFY:
                 text = "Verifying…";
@@ -316,11 +316,12 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
                     if (failed_attempts > 999) {
                         text = "> 999";
                     } else {
-                        snprintf(buf, sizeof(buf), "%d", failed_attempts);
+                        snprintf(buf, sizeof(buf), "%d failures", failed_attempts);
                         text = buf;
                     }
+                    use_dark_text = true;
                     cairo_set_source_rgb(ctx, 1, 0, 0);
-                    cairo_set_font_size(ctx, 32.0);
+                    cairo_set_font_size(ctx, 20.0);
                 }
                 break;
         }
@@ -383,10 +384,10 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
     if (xr_screens > 0) {
         /* Composite the unlock indicator in the middle of each screen. */
         for (int screen = 0; screen < xr_screens; screen++) {
-            int x = (xr_resolutions[screen].x + ((xr_resolutions[screen].width / 2) - (button_diameter_physical / 2)));
-            int y = (xr_resolutions[screen].y + ((xr_resolutions[screen].height / 2) - (button_diameter_physical / 2)));
+            int x = ((xr_resolutions[screen].width) - (button_diameter_physical * 3));
+            int y = ((xr_resolutions[screen].height) - (button_diameter_physical * 1.2));
             cairo_set_source_surface(xcb_ctx, output, x, y);
-            cairo_rectangle(xcb_ctx, x, y, button_diameter_physical, button_diameter_physical);
+            cairo_rectangle(xcb_ctx, x, y, button_diameter_physical*4, button_diameter_physical);
             cairo_fill(xcb_ctx);
         }
     } else {
