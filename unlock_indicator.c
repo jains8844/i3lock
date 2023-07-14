@@ -112,7 +112,7 @@ static void display_button_text(
 
     cairo_move_to(ctx, x, y);
     if (use_dark_text) {
-        cairo_set_source_rgb(ctx, 0., 0., 0.);
+        cairo_set_source_rgb(ctx, 1., 1., 1.);
     } else {
         cairo_set_source_rgb(ctx, 1., 1., 1.);
     }
@@ -203,18 +203,38 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
     cairo_fill(xcb_ctx);
 
     if (img) {
-        if (!tile) {
+        if (tile) {
+            if (xr_screens > 0 ) {
+                for (int screen = 0;screen < xr_screens; screen++) {
+                    int x = xr_resolutions[screen].x;
+                    int y = xr_resolutions[screen].y;
+                    int w = xr_resolutions[screen].width;
+                    int h = xr_resolutions[screen].height;
+                    int img_w = cairo_image_surface_get_width(img);
+                    int img_h = cairo_image_surface_get_height(img);
+                    double scale_x = img_w/((double)w);
+                    double scale_y = img_h/((double)h);
+                    if (xr_resolutions[screen].width < xr_resolutions[screen].height) {
+                        cairo_translate(xcb_ctx, w, 0);
+                        cairo_rotate(xcb_ctx, 1.5708);
+                        cairo_surface_set_device_scale(img, img_w/((double)h), img_h/((double)w));
+                        cairo_set_source_surface(xcb_ctx, img, x, y);
+                        cairo_paint(xcb_ctx);
+                        cairo_rotate(xcb_ctx, -1.5708);
+                        cairo_translate(xcb_ctx, -w, 0);
+                    } else {
+                        cairo_surface_set_device_scale(img, scale_x, scale_y);
+                        cairo_set_source_surface(xcb_ctx, img, x, y);
+                        cairo_paint(xcb_ctx);
+                    }
+                }
+            } else {
+                cairo_set_source_surface(xcb_ctx, img, 0, 0);
+                cairo_paint(xcb_ctx);
+            }
+        } else {
             cairo_set_source_surface(xcb_ctx, img, 0, 0);
             cairo_paint(xcb_ctx);
-        } else {
-            /* create a pattern and fill a rectangle as big as the screen */
-            cairo_pattern_t *pattern;
-            pattern = cairo_pattern_create_for_surface(img);
-            cairo_set_source(xcb_ctx, pattern);
-            cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
-            cairo_rectangle(xcb_ctx, 0, 0, resolution[0], resolution[1]);
-            cairo_fill(xcb_ctx);
-            cairo_pattern_destroy(pattern);
         }
     }
 
@@ -292,18 +312,18 @@ void draw_image(xcb_pixmap_t bg_pixmap, uint32_t *resolution) {
         /* We don't want to show more than a 3-digit number. */
         char buf[20];
 
-        cairo_set_source_rgb(ctx, 0, 0, 0);
-        cairo_select_font_face(ctx, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_source_rgb(ctx, 1, 1, 1);
+        cairo_select_font_face(ctx, "inconsolata", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
         cairo_set_font_size(ctx, 20.0);
         switch (auth_state) {
             case STATE_AUTH_VERIFY:
-                text = "Verifying…";
+                text = "Recovering...";
                 break;
             case STATE_AUTH_LOCK:
                 text = "Locking…";
                 break;
             case STATE_AUTH_WRONG:
-                text = "Wrong!";
+                text = "Failed!";
                 break;
             case STATE_I3LOCK_LOCK_FAILED:
                 text = "Lock failed!";
